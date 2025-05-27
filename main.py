@@ -9,9 +9,13 @@ from pprint import pprint
 
 def main():
     if len(sys.argv) < 2:
-        print("***Usage: python main.py starting-system shopping-cart.csv***")
+        print('_'*40)
+        print("Argument Failure, structure command like: python main.py starting-system shopping-cart.csv")
+        print('-'*40)
+        sys.exit()
     filename = sys.argv[2]
     start_point = sys.argv[1]
+    all_items_found_in_system = True
     desired_components = []
     with open(filename, newline='') as shoppingList:
         reader = csv.DictReader(shoppingList)
@@ -73,7 +77,7 @@ def main():
                             result = get_coords(location, search_term)
                             if result is not None:
                                 potential_stops.append(result)
-                        
+                #if multiple locations to buy, choose the closest one        
                     for dest_name, dest_coord in dest_coords:
                         closest_location, _ = get_distances([(dest_name, dest_coord)], potential_stops)
                         if closest_location:
@@ -104,7 +108,9 @@ def main():
             sum(any(part.startswith(comp) for comp in remaining_components) for part in loc[1]) == 0
             for loc in ranked
         ):
+            all_items_found_in_system = False
             break  # no further matches can be found
+
         location_with_parts_to_shop.append((ranked[0][0], ranked[0][1], get_coords(ranked[0][0], search_term_sanitization(ranked[0][0]))))
         best_location, parts_at_location = ranked[0]
         best_destinations.append(best_location)
@@ -114,11 +120,19 @@ def main():
                     shopped_parts.append(part)
                     remaining_components.remove(comp)
 
-    
-    path = sort_final_locations(location_with_parts_to_shop)
-    for stop in path:
-        print(stop[0], stop[1])
-    
+    #TODO: Remove this when pyro coordinates are available/found
+    if start_point.upper() == 'PYRO':
+        print('-'*120)
+        print('Due to the current unavailability of certain pyro location coordinates sorting by distance is unavailable')
+        print('-'*120)
+        for location in location_with_parts_to_shop:
+            print(location[0], location[1])
+    else:
+        path = sort_final_locations(location_with_parts_to_shop)
+        for stop in path:
+            print(stop[0], stop[1])
+            if path[-1] == stop and not all_items_found_in_system:
+                print(f"Not all of your components are available in {start_point}, please try again with a different system")    
 
 def get_distances(coord_list1, coord_list2):
     closest_pair = (None, float('inf'))
@@ -188,6 +202,8 @@ def search_term_sanitization(loc):
             search_term = 'Stanton3'
         case 'LORVILLE' | 'EVERUS HARBOR':
             search_term = 'Stanton1'
+        case 'BLOOM' | 'ORBITUARY':
+            search_term = 'pyro3'
     return search_term
 
 if __name__ == "__main__":
