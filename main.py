@@ -119,20 +119,11 @@ def main():
                 if part.startswith(comp):
                     shopped_parts.append(part)
                     remaining_components.remove(comp)
-
-    #TODO: Remove this when pyro coordinates are available/found
-    if start_point.upper() == 'PYRO':
-        print('-'*120)
-        print('Due to the current unavailability of certain pyro location coordinates sorting by distance is unavailable')
-        print('-'*120)
-        for location in location_with_parts_to_shop:
-            print(location[0], location[1])
-    else:
-        path = sort_final_locations(location_with_parts_to_shop)
-        for stop in path:
-            print(stop[0], stop[1])
-            if path[-1] == stop and not all_items_found_in_system:
-                print(f"Not all of your components are available in {start_point}, please try again with a different system")    
+    path = sort_final_locations(location_with_parts_to_shop)
+    for stop in path:
+        print(stop[0], stop[1])
+        if path[-1] == stop and not all_items_found_in_system:
+            print(f"Not all of your components are available in {start_point}, please try again with a different system")    
 
 def get_distances(coord_list1, coord_list2):
     closest_pair = (None, float('inf'))
@@ -186,7 +177,9 @@ def search_term_sanitization(loc):
     if ">" in loc:
         first_narrow = loc.split('>')
         final_narrow = first_narrow[1].split('-')
-        search_term = final_narrow[0].strip().upper()
+        suffix = final_narrow[0].split(' ')
+        combination = first_narrow[0].strip() +"_"+ final_narrow[0].split(" ")[1]
+        search_term = combination.strip().upper()
     else:
         first_narrow = loc.split(" - ")
         if len(first_narrow[1].strip()) == 3:
@@ -203,7 +196,7 @@ def search_term_sanitization(loc):
         case 'LORVILLE' | 'EVERUS HARBOR':
             search_term = 'Stanton1'
         case 'BLOOM' | 'ORBITUARY':
-            search_term = 'pyro3'
+            search_term = 'pyro3'        
     return search_term
 
 if __name__ == "__main__":
