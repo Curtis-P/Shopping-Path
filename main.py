@@ -4,25 +4,25 @@ import json
 import math
 import pandas as pd
 import ast
-from collections import Counter
+from collections import Counter, defaultdict
 from pprint import pprint
 
 def main():
     if len(sys.argv) < 2:
         print('_'*40)
-        print("Argument Failure, structure command like: python main.py starting-system shopping-cart.csv")
+        print("Argument Failure, structure command like: python3 main.py starting-system shopping-cart.csv")
         print('-'*40)
         sys.exit()
     filename = sys.argv[2]
     start_point = sys.argv[1]
-    all_items_found_in_system = True
+    all_items_found_in_system = False
+
     desired_components = []
     with open(filename, newline='') as shoppingList:
         reader = csv.DictReader(shoppingList)
         raw_list = list(reader)
         for component in raw_list:
             desired_components.append(component['Name'])
-
     #open up the csv and go row by row calling filter function dropping None lines then converting the results to a list
     df = pd.read_csv('ShipComponents.csv', header=None)    
     df["parsed"] = df[0].apply(lambda row: parse_and_filter(row, desired_components))
@@ -44,12 +44,12 @@ def main():
                 possible_locations[useful_segment].append(item['name'])
  
     best_destinations = []
-    shopped_parts = []
     location_with_parts_to_shop = []
     remaining_components = desired_components.copy()
     dest_coords = []
     
     while remaining_components:      
+        
         if len(remaining_components) <= 2:
             #create a flattened list of components in the possible locations dictionary
             all_components = [comp for comps in possible_locations.values() for comp in comps]
@@ -63,9 +63,8 @@ def main():
                 if count == 1:
                     for location, comps in possible_locations.items():
                         if comp in comps:
-                            location_with_parts_to_shop.append((location, [comp], get_coords(location, search_term_sanitization(location))))
+                            location_with_parts_to_shop.append((location, comp, get_coords(location, search_term_sanitization(location))))
                             best_destinations.append(location)
-                            shopped_parts.append(comp)
                             remaining_components.remove(comp)
                             break
                 else:
@@ -81,9 +80,8 @@ def main():
                     for dest_name, dest_coord in dest_coords:
                         closest_location, _ = get_distances([(dest_name, dest_coord)], potential_stops)
                         if closest_location:
-                            location_with_parts_to_shop.append((closest_location, [comp], get_coords(closest_location, search_term_sanitization(closest_location))))
+                            location_with_parts_to_shop.append((closest_location, comp, get_coords(closest_location, search_term_sanitization(closest_location))))
                             best_destinations.append(closest_location)
-                            shopped_parts.append(comp)
                             remaining_components.remove(comp)
                             break
                     
@@ -93,8 +91,8 @@ def main():
             result = get_coords(loc,search_term)
             if result is not None:
                 dest_coords.append(result)
-        # Rank locations by how many remaining components they offer
-        
+
+        # Rank locations by how many remaining components they offer        
         ranked = sorted(
             possible_locations.items(),
             key=lambda item: sum(
@@ -111,19 +109,34 @@ def main():
             all_items_found_in_system = False
             break  # no further matches can be found
 
-        location_with_parts_to_shop.append((ranked[0][0], ranked[0][1], get_coords(ranked[0][0], search_term_sanitization(ranked[0][0]))))
         best_location, parts_at_location = ranked[0]
         best_destinations.append(best_location)
         for part in parts_at_location:
             for comp in remaining_components[:]:  
                 if part.startswith(comp):
-                    shopped_parts.append(part)
+                    location_with_parts_to_shop.append((best_location, comp, get_coords(best_location, search_term_sanitization(best_location))))
                     remaining_components.remove(comp)
+
+    #prepair output
+    if remaining_components == []:
+        all_items_found_in_system = True
+
     path = sort_final_locations(location_with_parts_to_shop)
-    for stop in path:
-        print(stop[0], stop[1])
-        if path[-1] == stop and not all_items_found_in_system:
-            print(f"Not all of your components are available in {start_point}, please try again with a different system")    
+    flattened_path = flatten_locations(path)
+
+    for entry in flattened_path:
+        print(entry[0], entry[1])
+    if not all_items_found_in_system:
+        print(f"Not all of your components are available in {start_point}, please try again with a different system")
+        print(f"Unshopped components: {remaining_components}")
+
+def flatten_locations(data):
+    merged = defaultdict(lambda: {"parts": [], "coords": None})
+    for location, part, (_, coords) in data:
+       merged[location]["parts"].append(part)
+       merged[location]["coords"] = coords  # all coords per location should be the same
+
+    return [(loc, info["parts"], info["coords"]) for loc, info in merged.items()]
 
 def get_distances(coord_list1, coord_list2):
     closest_pair = (None, float('inf'))
